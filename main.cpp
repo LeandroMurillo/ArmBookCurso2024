@@ -22,11 +22,12 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 bool doorBellButtonState = OFF;
 bool optionState = OFF;
+bool playingAudioState = OFF;
 
 bool cameraState = OFF; //este estado tiene que activarse cuando ringBellState=ON
 //este estado tiene que hacer parpadear el LED para indicar que se ha activado la camara
 
-bool playingAudioState = OFF;
+
 //se supone que 
 
 bool recordingAudioState = OFF;
@@ -117,11 +118,11 @@ void chooseOption()
 
         switch (receivedChar) {
             case '1':  // Opción 1
-                uartUsb.write("Elegiste la opcion 1\r\n\r\n", 25);
+                option1Menu();
                 break;
 
             case '2':  // Opción 2
-                uartUsb.write("Elegiste la opcion 2\r\n\r\n", 25);
+                option2();
                 break;
 
             default:  // Opción inválida
@@ -142,12 +143,17 @@ void optionsMenu()
 
 void option1Menu()
 {
-    uartUsb.write( "Usted ha elegido la opción 1. Elija una de las respuestas disponibles:\r\n", 21 );
-    uartUsb.write( "'1' - Buen día, si ¿qué necesita?\r\n\r\n", 36 );
-    uartUsb.write( "'2' - otra respuesta generica...'\r\n\r\n", 36 );
-    uartUsb.write( "'0' - VOLVER AL MENU PRINCIPAL\r\n\r\n", 36 );
+    uartUsb.write("Usted ha elegido la opción 1. Elija una de las respuestas disponibles:\r\n\r\n", 73);
+    uartUsb.write("'1' - Buen día, si ¿qué necesita?\r\n\r\n", 39);
+    uartUsb.write("'2' - El señor #### lo atenderá en un momento\r\n\r\n", 50);
+    uartUsb.write("'3' - La señora #### lo atenderá en un momento\r\n\r\n", 51);
+    uartUsb.write("'0' - VOLVER AL MENU PRINCIPAL\r\n\r\n", 35);
 }
 
+void option2()
+{
+     uartUsb.write("Ha seleccionado la opción '2'. Grabando mensaje de voz...\r\n\r\n", 59);
+}
 
 
 /*void option1()
@@ -220,21 +226,5 @@ void option1Menu2()
     }
     
     uartUsb.write("'0' - VOLVER AL MENU PRINCIPAL\r\n", 36);
-}
-
-
-
-
-void option2()
-{
-
-}
-
-void sendVoiceMessage()  
-{
-    uartUsb.write( "Se ha habilitado el microfono del otro lado. Esperando respuesta...\r\n", 21 );
-    uartUsb.write( "'1' - Buen día, si ¿qué necesita?\r\n\r\n", 36 );
-    uartUsb.write( "'2' - otra respuesta generica...'\r\n\r\n", 36 );
-    uartUsb.write( "'0' - VOLVER AL MENU PRINCIPAL\r\n\r\n", 36 );
 }
 */
