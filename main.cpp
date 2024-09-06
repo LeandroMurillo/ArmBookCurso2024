@@ -3,7 +3,7 @@
 
 // =====[Declaration and initialization of public global variables]===========
 
-#define TIME_MS 10
+#define TIME_MS 100
 #define VISIT_TIME 5000 // habría que ver cómo podemos hacer para mandarle 2 minutos. Sin mucho más drama. Creería que se puede
 #define BLINKING_TIME_TAKING_PICTURE 500 //si le ponemos medio segundo podriamos más o menos determinar cuantas veces en un segundo tiene que parpadear
 #define BLINKING_TIME_PLAYING_AUDIO 500
@@ -25,6 +25,7 @@ bool ringBellState = OFF; //indica que el timbre ha sido presionado,
 // si esta variable está activada, ahi recien vamos a encender el LED del timbre, asi sería
 
 bool doorBellButtonState = OFF;
+bool optionState = OFF;
 
 bool cameraState = OFF; //este estado tiene que activarse cuando ringBellState=ON
 //este estado tiene que hacer parpadear el LED para indicar que se ha activado la camara
@@ -35,6 +36,9 @@ bool playingAudioState = OFF;
 bool recordingAudioState = OFF;
 
 int ellapsed_time = 0;
+
+const int mensajesLengths[] = {45, 48, 47};  // Longitudes de las cadenas de texto
+
 
 // =====[Declaration (prototypes) of public functions]===========
 
@@ -87,27 +91,25 @@ void doorbellActivationUpdate()
     if(doorBellButtonState){
         ellapsed_time = ellapsed_time + TIME_MS; //si ya hemos presionado el botón empieza a contar
         ringBellLed = ON; //se enciende el led porque ya ha empezado a contar
-
-        if(doorBellButton){ //se asegura que no se presione el timbre de nuevo, es una prueba en este caso
-             uartUsb.write("El timbre ya ha sido presionado, por favor aguarde un momento\r\n", 60);
+        
+        
+        if(optionState){
+            chooseOption();
         }
+        
 
-        else{
-            if(ellapsed_time>=VISIT_TIME){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
-                ringBellLed = OFF;
-                ellapsed_time = 0;
-                doorBellButtonState = OFF;
-            }
+        if(ellapsed_time>=VISIT_TIME){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
+            ringBellLed = OFF;
+            ellapsed_time = 0;
+            doorBellButtonState = OFF;
+            optionState = ON;
         }
     }
 }
 
-    
-    //chooseOption();
-
-/*void chooseOption() 
+void chooseOption() 
 {
-
+    optionState = OFF;
     optionsMenu();
 
     char receivedChar = '\0';  // Variable para almacenar el carácter recibido
@@ -117,31 +119,35 @@ void doorbellActivationUpdate()
 
         switch (receivedChar) {
             case '1':  // Opción 2
-                option1();
+                uartUsb.write("Elegiste la opcion 1\r\n", 35);
                 // Aquí puedes agregar el código necesario para manejar la opción 2
                 break;
 
             case '2':  // Opción 2
-                option2();
+                uartUsb.write("Elegiste la opcion 1\r\n", 35);
                 // Aquí puedes agregar el código necesario para manejar la opción 2
                 break;
 
             default:  // Cualquier opción inválida
                 uartUsb.write("Por favor, elija una opción válida.\r\n", 35);
-                chooseOption(); //espero que no se rompa nada por hacerla recursiva.
+                //chooseOption(); //espero que no se rompa nada por hacerla recursiva.
                 break;
         }
     }
 }
 
+
 void optionsMenu()
 {
-    //uartUsb.write( "Elija una de las opciones disponibles:\r\n", 21 );
-    uartUsb.write( "Presione '1' para enviar una respuesta pre-grabada\r\n\r\n", 36 );
-    uartUsb.write( "Presione '2' para enviar un mensaje de voz\r\n\r\n", 36 );
+    uartUsb.write("Elija una de las opciones disponibles:\r\n\r\n", 40);
+    uartUsb.write("Presione '1' para enviar una respuesta pre-grabada\r\n\r\n", 53);
+    uartUsb.write("Presione '2' para enviar un mensaje de voz\r\n\r\n", 47);
+
 }
 
-void option1()
+
+
+/*void option1()
 {
     option1Menu();
 
@@ -149,28 +155,26 @@ void option1()
     int numMensajes = sizeof(mensajes) / sizeof(mensajes[0]);  // Número total de mensajes
 
     if (uartUsb.readable()) {
-
         uartUsb.read(&receivedChar, 1);  // Leer un carácter de UART
-        
+
         int index = receivedChar - '1';  // Convertir el carácter a índice ('1' -> 0, '2' -> 1, etc.)
-        
+
         if (index >= 0 && index < numMensajes) {
-            uartUsb.write(mensajes[index], strlen(mensajes[index]));  // Enviar el mensaje seleccionado
+            uartUsb.write(mensajes[index], mensajesLengths[index]);  // Usar el array de longitudes
             playingAudioLed = ON;  // Encender el LED de reproducción
             delay(BLINKING_TIME_PLAYING_AUDIO);  // Parpadear LED
             playingAudioLed = OFF;  // Apagar el LED
         } 
-        
         else if (receivedChar == '0') {
             chooseOption();  // Volver al menú principal
         } 
-        
         else {
             uartUsb.write("Por favor, elija una opción válida.\r\n", 35);
             option1();  // Volver a llamar a option1
         }
     }
 }
+
 
 
 void option1Menu2()
