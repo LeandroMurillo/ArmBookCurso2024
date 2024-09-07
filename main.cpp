@@ -15,6 +15,9 @@
 #define TIME_SECONDS_PLAYING_AUDIO 3
 #define TIME_SECONDS_RECORDING_AUDIO 3
 
+#define STRING_VISIT_TIME_IS_OVER "perdón, su tiempo de atención ha finalizado"
+#define STRING_GOODBYE "Muchas gracias por su visita. Chau"
+
 DigitalIn doorBellButton(D7);
 
 DigitalOut ringBellLed(LED1); //esto ya lo vamos a hacer con el Doxygen
@@ -25,12 +28,12 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 // =====[Declaration and initialization of public global variables]===========
 
-bool doorBellButtonState = OFF;
+bool buttonState = OFF;
 bool cameraState = OFF;
 bool optionState = OFF;
+bool doorBellState = OFF; //este estado nos va a indicar ya cuando termine una secuencia de acciones, para no repetirla
 
 
-bool recordingAudioState = OFF;
 int ellapsed_time = 0;
 int accumulatedTimeRecordedAudio = 0;
 
@@ -44,7 +47,8 @@ void doorBellUpdate();
 void checkDoorBellPress();
 void startCameraLed();
 void startVisitTimer();
-void checkVisitTimer();
+void resetDoorBell();
+bool isVisitTimeOver();
 
 void optionsMenu();
 void chooseOption();
@@ -85,65 +89,88 @@ void doorBellUpdate()
 {
     checkDoorBellPress();
     
-    if(doorBellButtonState){
+    if(buttonState){
         startCameraLed();
         startVisitTimer();
-        checkVisitTimer(); //acá si vamos a tener una cosa bloqueante asi que hay que ver bien...
-        //chooseOption(); 
+        chooseOption(); 
+        resetDoorBell(); //acá si vamos a tener una cosa bloqueante asi que hay que ver bien...
     }
 }
 
 void checkDoorBellPress(){
     if(doorBellButton){ //todo este sistema se dispara cuando alguien presiona el timbre por primera vez
-        doorBellButtonState = ON; //la primera vez que alguien toca activamos esta variable
+        buttonState = ON; //la primera vez que alguien toca activamos esta variable
     }
 }
 
-void startCameraLed(){
-    if(doorBellButtonState && ellapsed_time==0){
+void startCameraLed()
+{
+    if(buttonState){
         blinkLedForTime(ringBellLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
+        buttonState = OFF;
     }
 }
 
-void startVisitTimer(){
-    
+void startVisitTimer()
+{
     ringBellLed = ON; //se enciende el led porque ya ha empezado a contar
     ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; //si ya hemos presionado el botón empieza a contar
 }
 
-void checkVisitTimer(){
-    if(ellapsed_time>=VISIT_TIME){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
-        ringBellLed = OFF;
-        ellapsed_time = 0;
-        doorBellButtonState = OFF;
-        optionState = ON;
+void chooseOption() 
+{   
+    if(!isVisitTimeOver()){
+
+        doorBellState = ON;
+
+        optionsMenu();
+
+        char receivedChar = '\0';
+        if( uartUsb.readable() ) {
+            uartUsb.read( &receivedChar, 1 );
+
+            switch (receivedChar) {
+                case '1':  // Opción 1
+                    option1();
+                    break;
+
+                case '2':  // Opción 2
+                    option2();
+                    break;
+
+                default:  // Opción inválida
+                    char errorMessage[50];  // Buffer para almacenar el mensaje
+                    sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
+                    uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+                    break;
+            }
+        }
+    }
+    
+    else{
+        uartUsb.write(STRING_VISIT_TIME_IS_OVER, strlen(STRING_VISIT_TIME_IS_OVER));
+        doorBellState = OFF;
     }
 }
 
-void chooseOption() 
+void resetDoorBell()
 {
-    optionsMenu();
-
-    char receivedChar = '\0';
-    if( uartUsb.readable() ) {
-        uartUsb.read( &receivedChar, 1 );
-
-        switch (receivedChar) {
-            case '1':  // Opción 1
-                option1();
-                break;
-
-            case '2':  // Opción 2
-                option2();
-                break;
-
-            default:  // Opción inválida
-                char errorMessage[50];  // Buffer para almacenar el mensaje
-                sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-                uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
-                break;
-        }
+    if(isVisitTimeOver() || doorBellState == OFF){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
+        ringBellLed = OFF;
+        ellapsed_time = 0;
+        buttonState = OFF;
+        optionState = ON;
+        
+        uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
     }
+}
+
+bool isVisitTimeOver()
+{
+    if(ellapsed_time>=VISIT_TIME){
+        return true;
+    }
+    return false;
 }
 
 void optionsMenu()
@@ -164,6 +191,7 @@ void option1()
 
         if(receivedChar == '1' || receivedChar == '2' || receivedChar == '3'){
             blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
+            doorBellState = OFF;
         }
 
         else if(receivedChar == '0'){
@@ -174,6 +202,7 @@ void option1()
             char errorMessage[50];  // Buffer para almacenar el mensaje
             sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
             uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+            option1();
         }
     }
 }
@@ -208,9 +237,12 @@ void option2()
      uartUsb.write("Se ha habilitado el microfono del otro lado.\r\n\r\n", 48);
      uartUsb.write("Esperando respuesta...\r\n\r\n", 25);
      keepLedOnForTime(recordingAudioLed, TIME_SECONDS_RECORDING_AUDIO);
+     doorBellState = OFF;
+     
 }
 
-void keepLedOnForTime(DigitalOut& led, float timeInSeconds) {
+void keepLedOnForTime(DigitalOut& led, float timeInSeconds) 
+{
     led = ON;  // Encender el LED
     delay(timeInSeconds * 1000);  // Mantenerlo encendido por el tiempo especificado (convertido a milisegundos)
     led = OFF;  // Apagar el LED después del tiempo transcurrido
