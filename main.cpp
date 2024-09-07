@@ -4,18 +4,17 @@
 // =====[Declaration and initialization of public global variables]===========
 
 #define TIME_MS 500 //lo vamos a tener que hacer bloqueante a proposito...
-#define VISIT_TIME 7000 // habría que ver cómo podemos hacer para mandarle 2 minutos. Sin mucho más drama. Creería que se puede
+#define TIME_INCREMENT_MS 10
+#define VISIT_TIME 4000 // habría que ver cómo podemos hacer para mandarle 2 minutos. Sin mucho más drama. Creería que se puede
 
 #define BLINKING_TIME_TAKING_PICTURE 250 //si le ponemos medio segundo podriamos más o menos determinar cuantas veces en un segundo tiene que parpadear
 #define BLINKING_TIME_PLAYING_AUDIO 500
 #define BLINKING_TIME_RECORDING_AUDIO 500
 
-#define TIME_SECONDS_TAKING_PICTURE 2
+#define TIME_SECONDS_TAKING_PICTURE 1
 #define TIME_SECONDS_PLAYING_AUDIO 3
 #define TIME_SECONDS_RECORDING_AUDIO 3
 
-
-//DigitalIn doorBellButton(D7);
 DigitalIn doorBellButton(D7);
 
 DigitalOut ringBellLed(LED1); //esto ya lo vamos a hacer con el Doxygen
@@ -27,11 +26,8 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 // =====[Declaration and initialization of public global variables]===========
 
 bool doorBellButtonState = OFF;
+bool cameraState = OFF;
 bool optionState = OFF;
-bool playingAudioState = OFF;
-
-bool cameraState = OFF; //este estado tiene que activarse cuando ringBellState=ON
-//este estado tiene que hacer parpadear el LED para indicar que se ha activado la camara
 
 
 bool recordingAudioState = OFF;
@@ -46,6 +42,7 @@ void outputsInit();
 
 void doorBellUpdate();
 void checkDoorBellPress();
+void startCameraLed();
 void startVisitTimer();
 void checkVisitTimer();
 
@@ -65,6 +62,7 @@ int main()
     outputsInit();
     while (true) {
         doorBellUpdate();
+        delay(TIME_INCREMENT_MS);
     }
 
 }
@@ -88,26 +86,29 @@ void doorBellUpdate()
     checkDoorBellPress();
     
     if(doorBellButtonState){
+        startCameraLed();
         startVisitTimer();
-        
-        if(optionState){
-            chooseOption();
-            //optionState = OFF;
-        }
-        checkVisitTimer();
+        checkVisitTimer(); //acá si vamos a tener una cosa bloqueante asi que hay que ver bien...
+        //chooseOption(); 
     }
 }
 
 void checkDoorBellPress(){
     if(doorBellButton){ //todo este sistema se dispara cuando alguien presiona el timbre por primera vez
         doorBellButtonState = ON; //la primera vez que alguien toca activamos esta variable
+    }
+}
+
+void startCameraLed(){
+    if(doorBellButtonState && ellapsed_time==0){
         blinkLedForTime(ringBellLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
     }
 }
 
 void startVisitTimer(){
-    ellapsed_time = ellapsed_time + TIME_MS; //si ya hemos presionado el botón empieza a contar
+    
     ringBellLed = ON; //se enciende el led porque ya ha empezado a contar
+    ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; //si ya hemos presionado el botón empieza a contar
 }
 
 void checkVisitTimer(){
@@ -161,20 +162,18 @@ void option1()
     if( uartUsb.readable() ) {
         uartUsb.read( &receivedChar, 1 );
 
-        switch (receivedChar) {
-            case '1':  // Opción 1. Esta hecho bloqueante a drede porque es lo ultimo que hace el programa
-                blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);  // Parpadea durante 2 segundos
-            break;
+        if(receivedChar == '1' || receivedChar == '2' || receivedChar == '3'){
+            blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
+        }
 
-            case '2':  // Opción 2
-                
-            break;
+        else if(receivedChar == '0'){
+            chooseOption(); 
+        }
 
-            default:  // Opción inválida
-                char errorMessage[50];  // Buffer para almacenar el mensaje
-                sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-                uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
-                break;
+        else{
+            char errorMessage[50];  // Buffer para almacenar el mensaje
+            sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
+            uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
         }
     }
 }
