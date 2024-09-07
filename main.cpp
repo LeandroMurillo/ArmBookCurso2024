@@ -10,7 +10,7 @@
 #define BLINKING_TIME_RECORDING_AUDIO 500
 
 //DigitalIn doorBellButton(D7);
-DigitalIn doorBellButton(BUTTON1);
+DigitalIn doorBellButton(D7);
 
 DigitalOut ringBellLed(LED1); //esto ya lo vamos a hacer con el Doxygen
 DigitalOut playingAudioLed(LED2);
@@ -28,13 +28,8 @@ bool cameraState = OFF; //este estado tiene que activarse cuando ringBellState=O
 //este estado tiene que hacer parpadear el LED para indicar que se ha activado la camara
 
 
-//se supone que 
-
 bool recordingAudioState = OFF;
-
 int ellapsed_time = 0;
-
-const int mensajesLengths[] = {45, 48, 47};  // Longitudes de las cadenas de texto
 
 
 // =====[Declaration (prototypes) of public functions]===========
@@ -42,9 +37,11 @@ const int mensajesLengths[] = {45, 48, 47};  // Longitudes de las cadenas de tex
 void inputsInit();
 void outputsInit();
 
-void testStates();
+void doorBellUpdate();
+void checkDoorBellPress();
+void startVisitTimer();
+void checkVisitTimer();
 
-void doorbellActivationUpdate();
 void optionsMenu();
 void chooseOption();
 void option1();
@@ -58,7 +55,7 @@ int main()
     inputsInit();
     outputsInit();
     while (true) {
-        doorbellActivationUpdate();
+        doorBellUpdate();
         delay(TIME_MS);
     }
 
@@ -78,34 +75,42 @@ void outputsInit()
     recordingAudioLed = OFF; 
 }
 
-void doorbellActivationUpdate()
+void doorBellUpdate()
 {
-
-    if(doorBellButton){ //todo este sistema se dispara cuando alguien presiona el timbre por primera vez
-        doorBellButtonState = ON; //la primera vez que alguien toca activamos esta variable
-    }
+    checkDoorBellPress();
     
     if(doorBellButtonState){
-        ellapsed_time = ellapsed_time + TIME_MS; //si ya hemos presionado el botón empieza a contar
-        ringBellLed = ON; //se enciende el led porque ya ha empezado a contar
-        
+        startVisitTimer();
         
         if(optionState){
             chooseOption();
             //optionState = OFF;
         }
-        
-
-        if(ellapsed_time>=VISIT_TIME){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
-            ringBellLed = OFF;
-            ellapsed_time = 0;
-            doorBellButtonState = OFF;
-            optionState = ON;
-        }
+        checkVisitTimer();
     }
 }
 
 //okey ahora toca implementar los comandos de la UART y con eso ya estaríamos 
+
+void checkDoorBellPress(){
+    if(doorBellButton){ //todo este sistema se dispara cuando alguien presiona el timbre por primera vez
+        doorBellButtonState = ON; //la primera vez que alguien toca activamos esta variable
+    }
+}
+
+void startVisitTimer(){
+    ellapsed_time = ellapsed_time + TIME_MS; //si ya hemos presionado el botón empieza a contar
+    ringBellLed = ON; //se enciende el led porque ya ha empezado a contar
+}
+
+void checkVisitTimer(){
+    if(ellapsed_time>=VISIT_TIME){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
+        ringBellLed = OFF;
+        ellapsed_time = 0;
+        doorBellButtonState = OFF;
+        optionState = ON;
+    }
+}
 
 void chooseOption() 
 {
