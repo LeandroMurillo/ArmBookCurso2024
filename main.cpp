@@ -1,10 +1,12 @@
+//=====[Libraries]=============================================================
+
 #include "mbed.h"
 #include "arm_book_lib.h"
 
-// =====[Declaration and initialization of public global variables]===========
+//=====[Defines]===============================================================
 
 #define TIME_INCREMENT_MS 10
-#define VISIT_TIME 10000 //en ms
+#define WAIT_TIME 10000 //en ms
 
 
 #define BLINKING_TIME_TAKING_PICTURE 250 
@@ -16,32 +18,31 @@
 #define TIME_SECONDS_PLAYING_AUDIO 3
 #define TIME_SECONDS_RECORDING_AUDIO 3
 
+#define STRING_ALERT_DOORBELL "\r\n\r\nHola! tenes a una nueva visita en la puerta." 
 
-#define STRING_RECORDING_AUDIO "\r\n\r\nHa seleccionado la opción '2'. Presione la tecla '0' para grabar un mensaje"
-#define STRING_RECORDING_AUDIO_OUTSIDE "Se ha habilitado el microfono del otro lado. Presione la tecla '0' para conocer la respuesta\r\n\r\n"
+#define STRING_RECORDING_AUDIO "\r\n\r\nHa seleccionado la opcion '2'. Presione la tecla '0' para grabar un mensaje de voz."
+#define STRING_RECORDING_AUDIO_OUTSIDE "\r\nSe ha habilitado el microfono del otro lado. Presione la tecla '0' para conocer la respuesta."
 
-#define STRING_SUCCESS_MESSAGE_TX "\r\n\r\nSu mensaje de voz ha sido enviado.\r\n\r\n"
-#define STRING_FAIL_MESSAGE_TX "\r\n\r\nLo siento, no se ha podido grabar el audio\r\n\r\n"
+#define STRING_SUCCESS_MESSAGE_TX "\r\n\r\nSu mensaje de voz ha sido enviado."
+#define STRING_FAIL_MESSAGE_TX "\r\n\r\nLo siento, no se ha podido grabar el mensaje de voz."
 
-#define STRING_SUCCESS_MESSAGE_RX "\r\n\r\nTiene un nuevo mensaje de voz en bandeja de entrada.\r\n\r\n"
-#define STRING_FAIL_MESSAGE_RX "\r\n\r\nSu mensaje de voz ha sido enviado.\r\n\r\n"
+#define STRING_SUCCESS_MESSAGE_RX "\r\n\r\nTiene un nuevo mensaje de voz en bandeja de entrada."
+#define STRING_FAIL_MESSAGE_RX "\r\n\r\nNo se ha escuchado nada al grabar el mensaje de voz en la entrada."
 
-#define STRING_VISIT_TIME_IS_OVER "\r\n\r\nperdón, su tiempo de atención ha finalizado"
-#define STRING_GOODBYE "\r\nMuchas gracias por su visita. Nos vemos pronto."
-
+#define STRING_VISIT_TIME_IS_OVER "\r\n\r\nPerdon, su tiempo de atencion ha finalizado."
+#define STRING_GOODBYE "\r\n\r\nMuchas gracias por su visita. Nos vemos pronto."
 
 #define POTENTIOMETER_OVER_VOICE_LEVEL 0.5
 
 //=====[Declaration and initialization of public global objects]===========
   
 DigitalIn doorBellButton(BUTTON1);
-DigitalIn overVoiceDetector(D3);
-
-DigitalOut CameraLed(LED1);
-DigitalOut playingAudioLed(LED2);
-DigitalOut recordingAudioLed(LED3); 
 
 AnalogIn potentiometer(A0);
+
+DigitalOut cameraLed(LED1);
+DigitalOut playingAudioLed(LED2);
+DigitalOut recordingAudioLed(LED3); 
 
 UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
@@ -49,11 +50,11 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 bool buttonState = OFF;
 bool doorBellState = OFF;
-
 bool voiceDetected = OFF;
-float potentiometerReading = 0.0;
 
-int visit_timer = 0;
+int wait_timer = 0;
+
+float potentiometerReading = 0.0;
 
 // =====[Declaration (prototypes) of public functions]===========
 
@@ -74,12 +75,11 @@ void sendInvalidOptionMessage(char receivedChar);
 
 void option1Menu();
 void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds);
-void keepLedOnForTime(DigitalOut& led, float timeInSeconds);
 
 void handleVoiceMessage(const char* successMessage, const char* failMessage);
 void updateVoiceDetected();
 
-bool isVisitTimerOver();
+bool isWaitTimerOver();
 
 // =====[Main function, the program entry point after power on or reset]===========
 
@@ -98,12 +98,11 @@ int main()
 void inputsInit()
 {
     doorBellButton.mode(PullDown);
-    overVoiceDetector.mode(PullDown);
 }
 
 void outputsInit()
 {
-    CameraLed = OFF;
+    cameraLed = OFF;
     playingAudioLed = OFF;
     recordingAudioLed = OFF; 
 }
@@ -130,46 +129,59 @@ void checkDoorBellBottonPress()
 void startCameraLed()
 {
     if(buttonState){
-        blinkLedForTime(CameraLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
+        blinkLedForTime(cameraLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
+        uartUsb.write(STRING_ALERT_DOORBELL, strlen(STRING_ALERT_DOORBELL));
         buttonState = OFF;
     }
 }
 
 void startVisitTimer()
 {
-    CameraLed = ON; 
-    visit_timer = visit_timer + TIME_INCREMENT_MS; 
+    cameraLed = ON; 
+    wait_timer = wait_timer + TIME_INCREMENT_MS; 
 }
 
 void chooseOption() 
-{   
-    if(!isVisitTimerOver()){
+{
+    int maxWaitTime = WAIT_TIME; // Tiempo máximo de espera para la interacción
 
+    if(!isWaitTimerOver()) {
         doorBellState = ON;
-
         optionsMenu();
 
         char receivedChar = '\0';
-        
-        uartUsb.read(&receivedChar, 1);
+        int elapsedTime = 0; // Reiniciar el tiempo para esta opción
 
-        switch (receivedChar) {
-            case '1':  // Opción 1
-                option1();
-                break;
-
-            case '2':  // Opción 2
-                option2();
-                break;
-
-            default:  // Opción inválida
-                sendInvalidOptionMessage(receivedChar);
-                chooseOption();
-                break;
+        // Controla el tiempo mientras espera la entrada del usuario
+        while (elapsedTime < maxWaitTime && receivedChar == '\0') {
+            if (uartUsb.readable()) {
+                uartUsb.read(&receivedChar, 1);
+            }
+            delay(TIME_INCREMENT_MS); // Incremento de tiempo
+            elapsedTime += TIME_INCREMENT_MS;
         }
-    }
-    
-    else{
+
+        if (receivedChar != '\0') {
+            switch (receivedChar) {
+                case '1':  // Opción 1
+                    option1();
+                    break;
+
+                case '2':  // Opción 2
+                    option2();
+                    break;
+
+                default:  // Opción inválida
+                    sendInvalidOptionMessage(receivedChar);
+                    chooseOption(); // Volver a elegir opción si es inválida
+                    break;
+            }
+        } else {
+            // Si el tiempo se acaba sin recibir entrada
+            uartUsb.write(STRING_VISIT_TIME_IS_OVER, strlen(STRING_VISIT_TIME_IS_OVER));
+            doorBellState = OFF;
+        }
+    } else {
         uartUsb.write(STRING_VISIT_TIME_IS_OVER, strlen(STRING_VISIT_TIME_IS_OVER));
         doorBellState = OFF;
     }
@@ -177,9 +189,9 @@ void chooseOption()
 
 void resetDoorBellSystem()
 {
-    if(isVisitTimerOver() || doorBellState == OFF){ 
-        CameraLed = OFF;
-        visit_timer = 0;
+    if(isWaitTimerOver() || doorBellState == OFF){ 
+        cameraLed = OFF;
+        wait_timer = 0;
         buttonState = OFF;
         
         uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
@@ -205,21 +217,28 @@ void option1()
     option1Menu();
 
     char receivedChar = '\0';
+    int maxWaitTime = WAIT_TIME;
+    int elapsedTime = 0; // Reiniciar el tiempo para esta opción
 
-    uartUsb.read(&receivedChar, 1);
+    // Controla el tiempo mientras espera la entrada del usuario
+    while (elapsedTime < maxWaitTime && receivedChar == '\0') {
+        if (uartUsb.readable()) {
+            uartUsb.read(&receivedChar, 1);
+        }
+        delay(TIME_INCREMENT_MS);
+        elapsedTime += TIME_INCREMENT_MS;
+    }
 
-    if(receivedChar == '1' || receivedChar == '2' || receivedChar == '3'){
+    if (receivedChar == '1' || receivedChar == '2' || receivedChar == '3') {
         blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
         doorBellState = OFF;
-    }
 
-    else if(receivedChar == '0'){
-        chooseOption(); 
-    }
+    } else if (receivedChar == '0') {
+        chooseOption();
 
-    else{
+    } else {
         sendInvalidOptionMessage(receivedChar);
-        option1();
+        option1(); // Volver a la opción 1 si es inválido
     }
 }
 
@@ -265,33 +284,36 @@ void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds
     led = OFF;  // Asegurarse de que el LED quede apagado al final
 }
 
-void keepLedOnForTime(DigitalOut& led, float timeInSeconds) 
-{
-    led = ON;  // Encender el LED
-    delay(timeInSeconds * 1000);  // Mantenerlo encendido por el tiempo especificado (convertido a milisegundos)
-    led = OFF;  // Apagar el LED después del tiempo transcurrido
-}
-
 void handleVoiceMessage(const char* successMessage, const char* failMessage) 
 {
     char receivedChar = '\0';
-    uartUsb.read(&receivedChar, 1);
+    int blinkingTime = BLINKING_TIME_RECORDING_AUDIO;
+    int maxWaitTime = WAIT_TIME;
+    int elapsedTime = 0; // Reiniciar el tiempo para este proceso
 
-    if(receivedChar == '0'){
+    // Parpadea el LED mientras espera la entrada del usuario
+    while (receivedChar != '0' && elapsedTime < maxWaitTime) {
+        recordingAudioLed = !recordingAudioLed;
+        delay(blinkingTime);
+        elapsedTime += blinkingTime;
+
+        if (uartUsb.readable()) {
+            uartUsb.read(&receivedChar, 1);
+        }
+    }
+
+    recordingAudioLed = OFF;
+
+    if (receivedChar == '0') {
         updateVoiceDetected();
 
-        if(voiceDetected){
+        if(voiceDetected) {
             uartUsb.write(successMessage, strlen(successMessage));
-        } 
-        
-        else {
+        } else {
             uartUsb.write(failMessage, strlen(failMessage));
         }
-    } 
-    
-    else{
-        sendInvalidOptionMessage(receivedChar);
-        handleVoiceMessage(successMessage,failMessage);
+    } else {
+        uartUsb.write(STRING_FAIL_MESSAGE_TX, strlen(STRING_FAIL_MESSAGE_TX));
     }
 }
 
@@ -306,9 +328,9 @@ void updateVoiceDetected()
     }
 }
 
-bool isVisitTimerOver()
+bool isWaitTimerOver()
 {
-    if(visit_timer>=VISIT_TIME){
+    if(wait_timer>=WAIT_TIME){
         return true;
     }
     return false;
