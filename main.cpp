@@ -53,7 +53,7 @@ bool doorBellState = OFF;
 bool voiceDetected = OFF;
 float potentiometerReading = 0.0;
 
-int ellapsed_time = 0;
+int visit_timer = 0;
 
 // =====[Declaration (prototypes) of public functions]===========
 
@@ -70,6 +70,7 @@ void resetDoorBellSystem();
 void optionsMenu();
 void option1();
 void option2();
+void sendInvalidOptionMessage(char receivedChar);
 
 void option1Menu();
 void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds);
@@ -78,7 +79,7 @@ void keepLedOnForTime(DigitalOut& led, float timeInSeconds);
 void handleVoiceMessage(const char* successMessage, const char* failMessage);
 void updateVoiceDetected();
 
-bool isVisitTimeOver();
+bool isVisitTimerOver();
 
 // =====[Main function, the program entry point after power on or reset]===========
 
@@ -137,12 +138,12 @@ void startCameraLed()
 void startVisitTimer()
 {
     CameraLed = ON; 
-    ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; 
+    visit_timer = visit_timer + TIME_INCREMENT_MS; 
 }
 
 void chooseOption() 
 {   
-    if(!isVisitTimeOver()){
+    if(!isVisitTimerOver()){
 
         doorBellState = ON;
 
@@ -150,7 +151,7 @@ void chooseOption()
 
         char receivedChar = '\0';
         
-        uartUsb.read( &receivedChar, 1 );
+        uartUsb.read(&receivedChar, 1);
 
         switch (receivedChar) {
             case '1':  // Opción 1
@@ -162,9 +163,7 @@ void chooseOption()
                 break;
 
             default:  // Opción inválida
-                char errorMessage[50];  // Buffer para almacenar el mensaje
-                sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-                uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+                sendInvalidOptionMessage(receivedChar);
                 break;
         }
     }
@@ -177,9 +176,9 @@ void chooseOption()
 
 void resetDoorBellSystem()
 {
-    if(isVisitTimeOver() || doorBellState == OFF){ 
+    if(isVisitTimerOver() || doorBellState == OFF){ 
         CameraLed = OFF;
-        ellapsed_time = 0;
+        visit_timer = 0;
         buttonState = OFF;
         
         uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
@@ -194,13 +193,20 @@ void optionsMenu()
 
 }
 
+void sendInvalidOptionMessage(char receivedChar) {
+    char errorMessage[50];  // Buffer para almacenar el mensaje
+    sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
+    uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+}
+
+
 void option1()
 {
     option1Menu();
 
     char receivedChar = '\0';
 
-    uartUsb.read( &receivedChar, 1 );
+    uartUsb.read(&receivedChar, 1);
 
     if(receivedChar == '1' || receivedChar == '2' || receivedChar == '3'){
         blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
@@ -212,9 +218,7 @@ void option1()
     }
 
     else{
-        char errorMessage[50]; 
-        sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-        uartUsb.write(errorMessage, strlen(errorMessage)); 
+        sendInvalidOptionMessage(receivedChar);
         option1();
     }
 }
@@ -295,9 +299,9 @@ void updateVoiceDetected()
     }
 }
 
-bool isVisitTimeOver()
+bool isVisitTimerOver()
 {
-    if(ellapsed_time>=VISIT_TIME){
+    if(visit_timer>=VISIT_TIME){
         return true;
     }
     return false;
