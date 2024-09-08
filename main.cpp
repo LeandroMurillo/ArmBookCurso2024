@@ -3,9 +3,8 @@
 
 // =====[Declaration and initialization of public global variables]===========
 
-#define TIME_MS 500 //lo vamos a tener que hacer bloqueante a proposito...
 #define TIME_INCREMENT_MS 10
-#define VISIT_TIME 4000 // habría que ver cómo podemos hacer para mandarle 2 minutos. Sin mucho más drama. Creería que se puede
+#define VISIT_TIME 10000 // habría que ver cómo podemos hacer para mandarle 2 minutos. Sin mucho más drama. Creería que se puede
 
 #define BLINKING_TIME_TAKING_PICTURE 250 //si le ponemos medio segundo podriamos más o menos determinar cuantas veces en un segundo tiene que parpadear
 #define BLINKING_TIME_PLAYING_AUDIO 500
@@ -15,27 +14,32 @@
 #define TIME_SECONDS_PLAYING_AUDIO 3
 #define TIME_SECONDS_RECORDING_AUDIO 3
 
-#define STRING_VISIT_TIME_IS_OVER "perdón, su tiempo de atención ha finalizado"
-#define STRING_GOODBYE "Muchas gracias por su visita. Chau"
+#define STRING_VISIT_TIME_IS_OVER "\r\n\r\nperdón, su tiempo de atención ha finalizado"
+#define STRING_GOODBYE "\r\nMuchas gracias por su visita. Nos vemos pronto."
 
-DigitalIn doorBellButton(D7);
+#define POTENTIOMETER_OVER_VOICE_LEVEL 0.5
 
-DigitalOut ringBellLed(LED1); //esto ya lo vamos a hacer con el Doxygen
+//DigitalIn doorBellButton(D7);
+DigitalIn doorBellButton(BUTTON1); //listo, entonces con el boton de la placa funciona, no hace falta el pulsador.
+DigitalIn overVoiceDetector(D3);
+
+DigitalOut CameraLed(LED1); //esto ya lo vamos a hacer con el Doxygen
 DigitalOut playingAudioLed(LED2);
 DigitalOut recordingAudioLed(LED3); 
+
+AnalogIn potentiometer(A0);
 
 UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 // =====[Declaration and initialization of public global variables]===========
 
 bool buttonState = OFF;
-bool cameraState = OFF;
-bool optionState = OFF;
 bool doorBellState = OFF; //este estado nos va a indicar ya cuando termine una secuencia de acciones, para no repetirla
 
+bool voiceDetected = OFF;
+float potentiometerReading = 0.0;
 
 int ellapsed_time = 0;
-int accumulatedTimeRecordedAudio = 0;
 
 
 // =====[Declaration (prototypes) of public functions]===========
@@ -43,19 +47,20 @@ int accumulatedTimeRecordedAudio = 0;
 void inputsInit();
 void outputsInit();
 
-void doorBellUpdate();
-void checkDoorBellPress();
+void updateDoorBellSystem();
+void checkDoorBellBottonPress();
 void startCameraLed();
 void startVisitTimer();
-void resetDoorBell();
+void resetDoorBellSystem();
 bool isVisitTimeOver();
 
-void optionsMenu();
 void chooseOption();
+void optionsMenu();
 void option1();
-void option1Menu();
-void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds);
 void option2();
+void option1Menu();
+
+void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds);
 void keepLedOnForTime(DigitalOut& led, float timeInSeconds);
 
 // =====[Main function, the program entry point after power on or reset]===========
@@ -65,10 +70,9 @@ int main()
     inputsInit();
     outputsInit();
     while (true) {
-        doorBellUpdate();
+        updateDoorBellSystem();
         delay(TIME_INCREMENT_MS);
     }
-
 }
 
 // =====[Implementation of public functions]===========
@@ -76,28 +80,29 @@ int main()
 void inputsInit()
 {
     doorBellButton.mode(PullDown); //la idea es que este botón solo haga las transiciones de estado
+    overVoiceDetector.mode(PullDown);
 }
 
 void outputsInit()
 {
-    ringBellLed = OFF; // podría hacer que el led parpadee y de ahi que se quede prendido
+    CameraLed = OFF; // podría hacer que el led parpadee y de ahi que se quede prendido
     playingAudioLed = OFF; // 
     recordingAudioLed = OFF; 
 }
 
-void doorBellUpdate()
+void updateDoorBellSystem()
 {
-    checkDoorBellPress();
+    checkDoorBellBottonPress();
     
     if(buttonState){
         startCameraLed();
         startVisitTimer();
         chooseOption(); 
-        resetDoorBell(); //acá si vamos a tener una cosa bloqueante asi que hay que ver bien...
+        resetDoorBellSystem(); //acá si vamos a tener una cosa bloqueante asi que hay que ver bien...
     }
 }
 
-void checkDoorBellPress(){
+void checkDoorBellBottonPress(){
     if(doorBellButton){ //todo este sistema se dispara cuando alguien presiona el timbre por primera vez
         buttonState = ON; //la primera vez que alguien toca activamos esta variable
     }
@@ -106,14 +111,14 @@ void checkDoorBellPress(){
 void startCameraLed()
 {
     if(buttonState){
-        blinkLedForTime(ringBellLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
+        blinkLedForTime(CameraLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
         buttonState = OFF;
     }
 }
 
 void startVisitTimer()
 {
-    ringBellLed = ON; //se enciende el led porque ya ha empezado a contar
+    CameraLed = ON; //se enciende el led porque ya ha empezado a contar
     ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; //si ya hemos presionado el botón empieza a contar
 }
 
@@ -126,7 +131,7 @@ void chooseOption()
         optionsMenu();
 
         char receivedChar = '\0';
-        if( uartUsb.readable() ) {
+        
             uartUsb.read( &receivedChar, 1 );
 
             switch (receivedChar) {
@@ -144,7 +149,6 @@ void chooseOption()
                     uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
                     break;
             }
-        }
     }
     
     else{
@@ -153,15 +157,15 @@ void chooseOption()
     }
 }
 
-void resetDoorBell()
+void resetDoorBellSystem()
 {
     if(isVisitTimeOver() || doorBellState == OFF){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
-        ringBellLed = OFF;
+        CameraLed = OFF;
         ellapsed_time = 0;
         buttonState = OFF;
-        optionState = ON;
         
         uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
+
     }
 }
 
@@ -186,30 +190,29 @@ void option1()
     option1Menu();
 
     char receivedChar = '\0';
-    if( uartUsb.readable() ) {
-        uartUsb.read( &receivedChar, 1 );
 
-        if(receivedChar == '1' || receivedChar == '2' || receivedChar == '3'){
-            blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
-            doorBellState = OFF;
-        }
+    uartUsb.read( &receivedChar, 1 );
 
-        else if(receivedChar == '0'){
-            chooseOption(); 
-        }
+    if(receivedChar == '1' || receivedChar == '2' || receivedChar == '3'){
+        blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
+        doorBellState = OFF;
+    }
 
-        else{
-            char errorMessage[50];  // Buffer para almacenar el mensaje
-            sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-            uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
-            option1();
-        }
+    else if(receivedChar == '0'){
+        chooseOption(); 
+    }
+
+    else{
+        char errorMessage[50];  // Buffer para almacenar el mensaje
+        sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
+        uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+        option1();
     }
 }
 
 void option1Menu()
 {
-    uartUsb.write("Usted ha elegido la opción 1. Elija una de las respuestas disponibles:\r\n\r\n", 73);
+    uartUsb.write("\r\n\r\nUsted ha elegido la opción 1. Elija una de las respuestas disponibles:\r\n\r\n", 79);
     uartUsb.write("'1' - Buen día, si ¿qué necesita?\r\n\r\n", 39);
     uartUsb.write("'2' - El señor #### lo atenderá en un momento\r\n\r\n", 50);
     uartUsb.write("'3' - La señora #### lo atenderá en un momento\r\n\r\n", 51);
@@ -231,15 +234,42 @@ void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds
 
 void option2()
 {
-     uartUsb.write("Ha seleccionado la opción '2'. Grabando mensaje de voz...\r\n\r\n", 59);
-     blinkLedForTime(recordingAudioLed, BLINKING_TIME_RECORDING_AUDIO, TIME_SECONDS_RECORDING_AUDIO);
-     uartUsb.write("Su mensaje de voz ha sido enviado.\r\n\r\n", 38);
-     uartUsb.write("Se ha habilitado el microfono del otro lado.\r\n\r\n", 48);
-     uartUsb.write("Esperando respuesta...\r\n\r\n", 25);
-     keepLedOnForTime(recordingAudioLed, TIME_SECONDS_RECORDING_AUDIO);
-     doorBellState = OFF;
+    potentiometerReading = potentiometer.read();
+
+    uartUsb.write("\r\n\r\nHa seleccionado la opción '2'. Grabando mensaje de voz...", 57);
      
+    if(potentiometerReading > POTENTIOMETER_OVER_VOICE_LEVEL){
+        voiceDetected = ON;
+    } else {
+        voiceDetected = OFF;
+    }
+
+    if(voiceDetected){
+        uartUsb.write("\r\n\r\nSu mensaje de voz ha sido enviado.\r\n\r\n", 42);
+    } else {
+        uartUsb.write("\r\n\r\nLo siento, no se ha escuchado bien.\r\n\r\n", 41);
+        doorBellState = OFF;
+    }
+     
+    uartUsb.write("Se ha habilitado el microfono del otro lado.\r\n\r\n", 48);
+    uartUsb.write("Esperando respuesta...\r\n\r\n", 25);
+
+    if(potentiometerReading > POTENTIOMETER_OVER_VOICE_LEVEL){
+        voiceDetected = ON;
+    } else {
+        voiceDetected = OFF;
+    }
+
+    if(voiceDetected){
+        uartUsb.write("\r\n\r\nTiene un nuevo mensaje de voz en bandeja de entrada.\r\n\r\n", 57);
+    } else {
+        uartUsb.write("\r\n\r\nLo siento, no se ha escuchado nada.\r\n\r\n", 41);
+        doorBellState = OFF;
+    }
+
+    doorBellState = OFF;
 }
+
 
 void keepLedOnForTime(DigitalOut& led, float timeInSeconds) 
 {
