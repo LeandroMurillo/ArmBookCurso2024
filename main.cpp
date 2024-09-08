@@ -4,10 +4,10 @@
 // =====[Declaration and initialization of public global variables]===========
 
 #define TIME_INCREMENT_MS 10
-#define VISIT_TIME 10000 // habría que ver cómo podemos hacer para mandarle 2 minutos. Sin mucho más drama. Creería que se puede
+#define VISIT_TIME 10000 
 
 
-#define BLINKING_TIME_TAKING_PICTURE 250 //si le ponemos medio segundo podriamos más o menos determinar cuantas veces en un segundo tiene que parpadear
+#define BLINKING_TIME_TAKING_PICTURE 250 
 #define BLINKING_TIME_PLAYING_AUDIO 500
 #define BLINKING_TIME_RECORDING_AUDIO 500
 
@@ -32,7 +32,8 @@
 
 #define POTENTIOMETER_OVER_VOICE_LEVEL 0.5
 
-
+//=====[Declaration and initialization of public global objects]===========
+  
 DigitalIn doorBellButton(BUTTON1);
 DigitalIn overVoiceDetector(D3);
 
@@ -119,8 +120,8 @@ void updateDoorBellSystem()
 
 void checkDoorBellBottonPress()
 {
-    if(doorBellButton){ //todo este sistema se dispara cuando alguien presiona el timbre por primera vez
-        buttonState = ON; //la primera vez que alguien toca activamos esta variable
+    if(doorBellButton){ 
+        buttonState = ON; 
     }
 }
 
@@ -134,13 +135,13 @@ void startCameraLed()
 
 void startVisitTimer()
 {
-    CameraLed = ON; //se enciende el led porque ya ha empezado a contar
-    ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; //si ya hemos presionado el botón empieza a contar
+    CameraLed = ON; 
+    ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; 
 }
 
 void resetDoorBellSystem()
 {
-    if(isVisitTimeOver() || doorBellState == OFF){ //si nadie ha vuelto a presionar el timbre y ya se ha vencido el timer el sistema termina su ejecución
+    if(isVisitTimeOver() || doorBellState == OFF){ 
         CameraLed = OFF;
         ellapsed_time = 0;
         buttonState = OFF;
@@ -218,9 +219,9 @@ void option1()
     }
 
     else{
-        char errorMessage[50];  // Buffer para almacenar el mensaje
+        char errorMessage[50]; 
         sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-        uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+        uartUsb.write(errorMessage, strlen(errorMessage)); 
         option1();
     }
 }
@@ -279,9 +280,12 @@ void handleVoiceMessage(const char* successMessage, const char* failMessage)
 
     if(receivedChar == '0'){
         updateVoiceDetected();
+
         if(voiceDetected){
             uartUsb.write(successMessage, strlen(successMessage));
-        } else {
+        } 
+        
+        else {
             uartUsb.write(failMessage, strlen(failMessage));
         }
     }
