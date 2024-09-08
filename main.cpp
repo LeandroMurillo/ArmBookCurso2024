@@ -150,23 +150,23 @@ void chooseOption()
 
         char receivedChar = '\0';
         
-            uartUsb.read( &receivedChar, 1 );
+        uartUsb.read( &receivedChar, 1 );
 
-            switch (receivedChar) {
-                case '1':  // Opción 1
-                    option1();
-                    break;
+        switch (receivedChar) {
+            case '1':  // Opción 1
+                option1();
+                break;
 
-                case '2':  // Opción 2
-                    option2();
-                    break;
+            case '2':  // Opción 2
+                option2();
+                break;
 
-                default:  // Opción inválida
-                    char errorMessage[50];  // Buffer para almacenar el mensaje
-                    sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-                    uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
-                    break;
-            }
+            default:  // Opción inválida
+                char errorMessage[50];  // Buffer para almacenar el mensaje
+                sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
+                uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+                break;
+        }
     }
     
     else{
