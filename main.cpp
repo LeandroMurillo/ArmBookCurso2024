@@ -64,7 +64,7 @@ void updateDoorBellSystem();
 
 void checkDoorBellBottonPress();
 void startCameraLed();
-void startVisitTimer();
+void startWaitTimer();
 void chooseOption();
 void resetDoorBellSystem();
 
@@ -113,7 +113,7 @@ void updateDoorBellSystem()
     
     if(buttonState){
         startCameraLed();
-        startVisitTimer();
+        startWaitTimer();
         chooseOption(); 
         resetDoorBellSystem();
     }
@@ -135,7 +135,7 @@ void startCameraLed()
     }
 }
 
-void startVisitTimer()
+void startWaitTimer()
 {
     cameraLed = ON; 
     wait_timer = wait_timer + TIME_INCREMENT_MS; 
