@@ -64,10 +64,9 @@ void updateDoorBellSystem();
 void checkDoorBellBottonPress();
 void startCameraLed();
 void startVisitTimer();
-void resetDoorBellSystem();
-bool isVisitTimeOver();
-
 void chooseOption();
+void resetDoorBellSystem();
+
 void optionsMenu();
 void option1();
 void option2();
@@ -78,6 +77,8 @@ void keepLedOnForTime(DigitalOut& led, float timeInSeconds);
 
 void handleVoiceMessage(const char* successMessage, const char* failMessage);
 void updateVoiceDetected();
+
+bool isVisitTimeOver();
 
 // =====[Main function, the program entry point after power on or reset]===========
 
@@ -139,25 +140,6 @@ void startVisitTimer()
     ellapsed_time = ellapsed_time + TIME_INCREMENT_MS; 
 }
 
-void resetDoorBellSystem()
-{
-    if(isVisitTimeOver() || doorBellState == OFF){ 
-        CameraLed = OFF;
-        ellapsed_time = 0;
-        buttonState = OFF;
-        
-        uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
-    }
-}
-
-bool isVisitTimeOver()
-{
-    if(ellapsed_time>=VISIT_TIME){
-        return true;
-    }
-    return false;
-}
-
 void chooseOption() 
 {   
     if(!isVisitTimeOver()){
@@ -190,6 +172,17 @@ void chooseOption()
     else{
         uartUsb.write(STRING_VISIT_TIME_IS_OVER, strlen(STRING_VISIT_TIME_IS_OVER));
         doorBellState = OFF;
+    }
+}
+
+void resetDoorBellSystem()
+{
+    if(isVisitTimeOver() || doorBellState == OFF){ 
+        CameraLed = OFF;
+        ellapsed_time = 0;
+        buttonState = OFF;
+        
+        uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
     }
 }
 
@@ -300,4 +293,12 @@ void updateVoiceDetected()
     } else {
         voiceDetected = OFF;
     }
+}
+
+bool isVisitTimeOver()
+{
+    if(ellapsed_time>=VISIT_TIME){
+        return true;
+    }
+    return false;
 }
