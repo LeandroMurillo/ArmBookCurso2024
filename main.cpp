@@ -4,7 +4,7 @@
 // =====[Declaration and initialization of public global variables]===========
 
 #define TIME_INCREMENT_MS 10
-#define VISIT_TIME 10000 
+#define VISIT_TIME 10000 //en ms
 
 
 #define BLINKING_TIME_TAKING_PICTURE 250 
@@ -191,10 +191,10 @@ void optionsMenu()
     uartUsb.write("Elija una de las opciones disponibles:\r\n\r\n", 40);
     uartUsb.write("Presione '1' para enviar una respuesta pre-grabada\r\n\r\n", 53);
     uartUsb.write("Presione '2' para enviar un mensaje de voz\r\n\r\n", 47);
-
 }
 
-void sendInvalidOptionMessage(char receivedChar) {
+void sendInvalidOptionMessage(char receivedChar) 
+{
     char errorMessage[50];  // Buffer para almacenar el mensaje
     sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
     uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
@@ -225,12 +225,14 @@ void option1()
 
 void option2()
 {
+    // Le pide al usuario marcar '0' en el teclado para grabar un mensaje
     uartUsb.write(STRING_RECORDING_AUDIO, strlen(STRING_RECORDING_AUDIO));
 
     // Manejamos la grabación del primer mensaje
     handleVoiceMessage(STRING_SUCCESS_MESSAGE_TX,
                        STRING_FAIL_MESSAGE_TX);
 
+    // Le pide al usuario marcar '0' para escuchar el mensaje que se grabó en la entrada.
     uartUsb.write(STRING_RECORDING_AUDIO_OUTSIDE, strlen(STRING_RECORDING_AUDIO_OUTSIDE));
 
     // Manejamos la grabación del segundo mensaje
