@@ -164,6 +164,7 @@ void chooseOption()
 
             default:  // Opción inválida
                 sendInvalidOptionMessage(receivedChar);
+                chooseOption();
                 break;
         }
     }
@@ -198,7 +199,6 @@ void sendInvalidOptionMessage(char receivedChar) {
     sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
     uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
 }
-
 
 void option1()
 {
@@ -285,6 +285,11 @@ void handleVoiceMessage(const char* successMessage, const char* failMessage)
         else {
             uartUsb.write(failMessage, strlen(failMessage));
         }
+    } 
+    
+    else{
+        sendInvalidOptionMessage(receivedChar);
+        handleVoiceMessage(successMessage,failMessage);
     }
 }
 
