@@ -152,7 +152,7 @@ void chooseOption()
         int elapsedTime = 0; // Reiniciar el tiempo para esta opción
 
         // Controla el tiempo mientras espera la entrada del usuario
-        while (elapsedTime < maxWaitTime && receivedChar == '\0') {
+        while (elapsedTime < maxWaitTime and receivedChar == '\0') {
             if (uartUsb.readable()) {
                 uartUsb.read(&receivedChar, 1);
             }
@@ -188,7 +188,7 @@ void chooseOption()
 
 void resetDoorBellSystem()
 {
-    if(isWaitTimerOver() || doorBellState == OFF){ 
+    if(isWaitTimerOver() or doorBellState == OFF){ 
         cameraLed = OFF;
         wait_timer = 0;
         buttonState = OFF;
@@ -212,7 +212,7 @@ void option1()
     int elapsedTime = 0; // Reiniciar el tiempo para esta opción
 
     // Controla el tiempo mientras espera la entrada del usuario
-    while (elapsedTime < maxWaitTime && receivedChar == '\0') {
+    while (elapsedTime < maxWaitTime and receivedChar == '\0') {
         if (uartUsb.readable()) {
             uartUsb.read(&receivedChar, 1);
         }
@@ -220,7 +220,7 @@ void option1()
         elapsedTime += TIME_INCREMENT_MS;
     }
 
-    if (receivedChar == '1' || receivedChar == '2' || receivedChar == '3') {
+    if (receivedChar == '1' or receivedChar == '2' or receivedChar == '3') {
         blinkLedForTime(playingAudioLed, BLINKING_TIME_PLAYING_AUDIO, TIME_SECONDS_PLAYING_AUDIO);
         doorBellState = OFF;
 
@@ -279,7 +279,7 @@ void handleVoiceMessage(const char* successMessage, const char* failMessage)
     int elapsedTime = 0; // Reiniciar el tiempo para este proceso
 
     // Parpadea el LED mientras espera la entrada del usuario
-    while (receivedChar != '0' && elapsedTime < maxWaitTime) {
+    while (receivedChar != '0' and elapsedTime < maxWaitTime) {
         recordingAudioLed = !recordingAudioLed;
         delay(blinkingTime);
         elapsedTime += blinkingTime;
