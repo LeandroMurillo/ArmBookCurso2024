@@ -2,35 +2,20 @@
 
 #include "mbed.h"
 #include "arm_book_lib.h"
+#include <vector> // Incluir la librería para vectores
 
 //=====[Defines]===============================================================
 
 #define TIME_INCREMENT_MS 10
 #define WAIT_TIME 10000 //en ms
 
-
 #define BLINKING_TIME_TAKING_PICTURE 250 
 #define BLINKING_TIME_PLAYING_AUDIO 500
 #define BLINKING_TIME_RECORDING_AUDIO 500
 
-
 #define TIME_SECONDS_TAKING_PICTURE 1
 #define TIME_SECONDS_PLAYING_AUDIO 3
 #define TIME_SECONDS_RECORDING_AUDIO 3
-
-#define STRING_ALERT_DOORBELL "\r\n\r\nHola! tenes a una nueva visita en la puerta." 
-
-#define STRING_RECORDING_AUDIO "\r\n\r\nHa seleccionado la opcion '2'. Presione la tecla '0' para grabar un mensaje de voz."
-#define STRING_RECORDING_AUDIO_OUTSIDE "\r\nSe ha habilitado el microfono del otro lado. Presione la tecla '0' para conocer la respuesta."
-
-#define STRING_SUCCESS_MESSAGE_TX "\r\n\r\nSu mensaje de voz ha sido enviado."
-#define STRING_FAIL_MESSAGE_TX "\r\n\r\nLo siento, no se ha podido grabar el mensaje de voz."
-
-#define STRING_SUCCESS_MESSAGE_RX "\r\n\r\nTiene un nuevo mensaje de voz en bandeja de entrada."
-#define STRING_FAIL_MESSAGE_RX "\r\n\r\nNo se ha escuchado nada al grabar el mensaje de voz en la entrada."
-
-#define STRING_VISIT_TIME_IS_OVER "\r\n\r\nPerdon, su tiempo de atencion ha finalizado."
-#define STRING_GOODBYE "\r\n\r\nMuchas gracias por su visita. Nos vemos pronto."
 
 #define POTENTIOMETER_OVER_VOICE_LEVEL 0.5
 
@@ -45,6 +30,20 @@ DigitalOut playingAudioLed(LED2);
 DigitalOut recordingAudioLed(LED3); 
 
 UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
+
+std::vector<const char*> optionsMenuMessages = {
+    "\r\nElija una de las opciones disponibles:\r\n",
+    "\r\nPresione '1' para enviar una respuesta pre-grabada\r\n",
+    "\r\nPresione '2' para enviar un mensaje de voz\r\n"
+};
+
+std::vector<const char*> option1MenuMessages = {
+        "\r\n\r\nUsted ha elegido la opción 1. Elija una de las respuestas disponibles:\r\n\r\n",
+        "'1' - Buen día, si ¿qué necesita?\r\n\r\n",
+        "'2' - El señor #### lo atenderá en un momento\r\n\r\n",
+        "'3' - La señora #### lo atenderá en un momento\r\n\r\n",
+        "'0' - VOLVER AL MENU PRINCIPAL\r\n\r\n"
+};
 
 // =====[Declaration and initialization of public global variables]===========
 
@@ -68,7 +67,6 @@ void startWaitTimer();
 void chooseOption();
 void resetDoorBellSystem();
 
-void optionsMenu();
 void option1();
 void option2();
 void sendInvalidOptionMessage(char receivedChar);
@@ -80,6 +78,7 @@ void handleVoiceMessage(const char* successMessage, const char* failMessage);
 void updateVoiceDetected();
 
 bool isWaitTimerOver();
+void showMessages(const std::vector<const char*>& messages);
 
 // =====[Main function, the program entry point after power on or reset]===========
 
@@ -130,7 +129,7 @@ void startCameraLed()
 {
     if(buttonState){
         blinkLedForTime(cameraLed, BLINKING_TIME_TAKING_PICTURE, TIME_SECONDS_TAKING_PICTURE);
-        uartUsb.write(STRING_ALERT_DOORBELL, strlen(STRING_ALERT_DOORBELL));
+        showMessages({"\r\n\r\nHola! tenes a una nueva visita en la puerta."});
         buttonState = OFF;
     }
 }
@@ -147,7 +146,7 @@ void chooseOption()
 
     if(!isWaitTimerOver()) {
         doorBellState = ON;
-        optionsMenu();
+        showMessages(optionsMenuMessages);
 
         char receivedChar = '\0';
         int elapsedTime = 0; // Reiniciar el tiempo para esta opción
@@ -178,11 +177,11 @@ void chooseOption()
             }
         } else {
             // Si el tiempo se acaba sin recibir entrada
-            uartUsb.write(STRING_VISIT_TIME_IS_OVER, strlen(STRING_VISIT_TIME_IS_OVER));
+            showMessages({"\r\n\r\nPerdon, su tiempo de atencion ha finalizado."});
             doorBellState = OFF;
         }
     } else {
-        uartUsb.write(STRING_VISIT_TIME_IS_OVER, strlen(STRING_VISIT_TIME_IS_OVER));
+        showMessages({"\r\n\r\nPerdon, su tiempo de atencion ha finalizado."});;
         doorBellState = OFF;
     }
 }
@@ -193,23 +192,15 @@ void resetDoorBellSystem()
         cameraLed = OFF;
         wait_timer = 0;
         buttonState = OFF;
-        
-        uartUsb.write(STRING_GOODBYE, strlen(STRING_GOODBYE));
+        showMessages({"\r\n\r\nMuchas gracias por su visita. Nos vemos pronto."});
     }
-}
-
-void optionsMenu()
-{
-    uartUsb.write("Elija una de las opciones disponibles:\r\n\r\n", 40);
-    uartUsb.write("Presione '1' para enviar una respuesta pre-grabada\r\n\r\n", 53);
-    uartUsb.write("Presione '2' para enviar un mensaje de voz\r\n\r\n", 47);
 }
 
 void sendInvalidOptionMessage(char receivedChar) 
 {
     char errorMessage[50];  // Buffer para almacenar el mensaje
     sprintf(errorMessage, "El caracter '%c' no es una opción válida\r\n\r\n", receivedChar);
-    uartUsb.write(errorMessage, strlen(errorMessage));  // Enviar el mensaje con el carácter ingresado
+    showMessages({errorMessage});  // Enviar el mensaje con el carácter ingresado
 }
 
 void option1()
@@ -245,29 +236,25 @@ void option1()
 void option2()
 {
     // Le pide al usuario marcar '0' en el teclado para grabar un mensaje
-    uartUsb.write(STRING_RECORDING_AUDIO, strlen(STRING_RECORDING_AUDIO));
+    showMessages({"\r\n\r\nHa seleccionado la opcion '2'. Presione la tecla '0' para grabar un mensaje de voz."});
 
     // Manejamos la grabación del primer mensaje
-    handleVoiceMessage(STRING_SUCCESS_MESSAGE_TX,
-                       STRING_FAIL_MESSAGE_TX);
+    handleVoiceMessage("\r\n\r\nSu mensaje de voz ha sido enviado.",
+                       "\r\n\r\nLo siento, no se ha podido grabar el mensaje de voz.");
 
     // Le pide al usuario marcar '0' para escuchar el mensaje que se grabó en la entrada.
-    uartUsb.write(STRING_RECORDING_AUDIO_OUTSIDE, strlen(STRING_RECORDING_AUDIO_OUTSIDE));
+    showMessages({"\r\nSe ha habilitado el microfono del otro lado. Presione la tecla '0' para conocer la respuesta."});
 
     // Manejamos la grabación del segundo mensaje
-    handleVoiceMessage(STRING_SUCCESS_MESSAGE_RX,
-                       STRING_FAIL_MESSAGE_RX);
+    handleVoiceMessage("\r\n\r\nTiene un nuevo mensaje de voz en bandeja de entrada.",
+                       "\r\n\r\nNo se ha escuchado nada al grabar el mensaje de voz en la entrada.");
 
     doorBellState = OFF;
 }
 
 void option1Menu()
 {
-    uartUsb.write("\r\n\r\nUsted ha elegido la opción 1. Elija una de las respuestas disponibles:\r\n\r\n", 79);
-    uartUsb.write("'1' - Buen día, si ¿qué necesita?\r\n\r\n", 39);
-    uartUsb.write("'2' - El señor #### lo atenderá en un momento\r\n\r\n", 50);
-    uartUsb.write("'3' - La señora #### lo atenderá en un momento\r\n\r\n", 51);
-    uartUsb.write("'0' - VOLVER AL MENU PRINCIPAL\r\n\r\n", 35);
+    showMessages(option1MenuMessages);
 }
 
 void blinkLedForTime(DigitalOut& led, int blinkingTime, float totalTimeInSeconds) 
@@ -308,12 +295,12 @@ void handleVoiceMessage(const char* successMessage, const char* failMessage)
         updateVoiceDetected();
 
         if(voiceDetected) {
-            uartUsb.write(successMessage, strlen(successMessage));
+            showMessages({successMessage});
         } else {
-            uartUsb.write(failMessage, strlen(failMessage));
+            showMessages({failMessage});
         }
     } else {
-        uartUsb.write(STRING_FAIL_MESSAGE_TX, strlen(STRING_FAIL_MESSAGE_TX));
+        showMessages({"\r\n\r\nLo siento, no se ha podido grabar el mensaje de voz."});
     }
 }
 
@@ -335,3 +322,11 @@ bool isWaitTimerOver()
     }
     return false;
 }
+
+// Función para mostrar un vector de mensajes
+void showMessages(const std::vector<const char*>& messages) {
+    for (const auto& message : messages) {
+        uartUsb.write(message, strlen(message));  // Envía cada mensaje por UART
+    }
+}
+
